@@ -52,14 +52,14 @@ export const FORM_ITEMS: FormItems = [
     id: 'application',
     label: 'Applicazione',
     selector: 'option',
-    order: 2,
+    order: 3,
     options: []
   },
   {
     id: 'sector',
     label: 'Sezione',
     selector: 'option',
-    order: 3,
+    order: 2,
     options: []
   },
 

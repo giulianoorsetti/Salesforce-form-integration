@@ -27,6 +27,13 @@ const toast = ref<InstanceType<typeof TheToast>>()
 const sortedElements = computed(() => [...elements.value].sort((x, y) => x.order - y.order))
 
 const handleSubmit = async () => {
+  store.form.categoryDescription =
+    elements.value
+      .find((element) => element.id === 'categoryDescription')
+      ?.options?.find((option) => option.sectorId === store.form.category)?.value ?? ''
+
+  if (store.form.sector === '1') store.form.application = 'temp'
+
   if (!Object.values(form).every((value) => !!value)) return
 
   const body = {
@@ -36,7 +43,9 @@ const handleSubmit = async () => {
     Category__c: elements.value
       .find((element) => element.id === 'category')
       ?.options?.find((option) => option.id === parseInt(form.category))?.value,
-    Category_Description__c: store.form.categoryDescription,
+    Category_Description__c: elements.value
+      .find((element) => element.id === 'categoryDescription')
+      ?.options?.find((option) => option.sectorId === store.form.category)?.value,
     Description: form.description,
     Origin: 'Smart',
     Priority: elements.value
@@ -58,6 +67,8 @@ const handleSubmit = async () => {
     Function__c: store.auth.user.function,
     Web_Function__c: store.auth.user.function
   }
+
+  if (store.form.sector === '1') delete body.Application__c
 
   const id = await axios
     .post<{ id: string }>(CASE_ENDPOINT, body, { headers: store.auth.headers })
@@ -162,14 +173,7 @@ watchEffect(async () => {
           </div>
 
           <div class="btn-group">
-            <sl-button
-              size="small"
-              type="submit"
-              variant="neutral"
-              :disabled="!Object.values(form).every((value) => !!value)"
-            >
-              Invia
-            </sl-button>
+            <sl-button size="small" type="submit" variant="neutral"> Invia </sl-button>
             <sl-button
               size="small"
               type="reset"

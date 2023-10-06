@@ -5,6 +5,7 @@ export const store = reactive<Store>({
   form: {
     application: '',
     category: '',
+    categoryDescription: '',
     description: '',
     priority: '',
     sector: '',
@@ -18,6 +19,7 @@ export const store = reactive<Store>({
     user: {
       contact: '',
       email: '',
+      function: '',
       id: '',
       phone: '',
       site: '',
