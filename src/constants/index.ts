@@ -52,7 +52,7 @@ export const FORM_ITEMS: FormItems = [
     id: 'application',
     label: 'Applicazione',
     selector: 'option',
-    order: 3,
+    order: 6,
     options: []
   },
   {
@@ -67,21 +67,21 @@ export const FORM_ITEMS: FormItems = [
     id: 'tipology',
     label: 'Tipologia',
     selector: 'option',
-    order: 4,
+    order: 3,
     options: []
   },
   {
     id: 'category',
     label: 'Categoria',
     selector: 'option',
-    order: 5,
+    order: 4,
     options: []
   },
   {
     id: 'categoryDescription',
     label: 'Descrizione',
     selector: 'textarea',
-    order: 6,
+    order: 5,
     options: []
   },
   {

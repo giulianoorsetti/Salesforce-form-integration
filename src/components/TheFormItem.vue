@@ -57,23 +57,38 @@ const filter = (item: FormItem, option: Option) => {
       :value="item.options?.find((option) => option.sectorId === store.form.category)?.value"
     ></sl-textarea>
 
-    <template v-if="item.id !== 'application' || store.form.sector !== '1'">
-      <sl-select
-        v-if="item.selector === 'option'"
-        v-model="store.form[item.id]"
-        :disabled="disabled(item)"
-        :label="item.label"
-        @sl-input="store.updateForm(item.id, $event.target.value)"
+    <sl-select
+      v-if="item.selector === 'option' && item.id !== 'application'"
+      v-model="store.form[item.id]"
+      :disabled="disabled(item)"
+      :label="item.label"
+      @sl-input="store.updateForm(item.id, $event.target.value)"
+    >
+      <sl-option value="">---</sl-option>
+      <sl-option
+        v-for="option of item.options?.filter((option) => filter(item, option))"
+        :key="option.id"
+        :value="option.id"
       >
-        <sl-option value="">---</sl-option>
-        <sl-option
-          v-for="option of item.options?.filter((option) => filter(item, option))"
-          :key="option.id"
-          :value="option.id"
-        >
-          {{ option.value }}
-        </sl-option>
-      </sl-select>
-    </template>
+        {{ option.value }}
+      </sl-option>
+    </sl-select>
+
+    <sl-select
+      v-if="item.selector === 'option' && item.id === 'application' && store.form.sector === '0'"
+      v-model="store.form[item.id]"
+      :disabled="disabled(item)"
+      :label="item.label"
+      @sl-input="store.updateForm(item.id, $event.target.value)"
+    >
+      <sl-option value="">---</sl-option>
+      <sl-option
+        v-for="option of item.options?.filter((option) => filter(item, option))"
+        :key="option.id"
+        :value="option.id"
+      >
+        {{ option.value }}
+      </sl-option>
+    </sl-select>
   </div>
 </template>

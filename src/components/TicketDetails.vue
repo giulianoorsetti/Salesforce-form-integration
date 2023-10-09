@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CASE_INTERNAL_ENDPOINT, QUERY_ENDPOINT } from '@/constants'
+import { CASE_INTERNAL_ENDPOINT, QUERY_ENDPOINT, SALESFORCE_ENDPOINT } from '@/constants'
 import { store } from '@/store'
 import axios from 'axios'
 import { computed, onMounted, ref } from 'vue'
@@ -22,7 +22,7 @@ type Case = {
 
 type General = {
   Subject__c: DetailsInfo
-  Note__c: DetailsInfo
+  Description__c: DetailsInfo
   Date_Time_Opened__c: DetailsInfo
   Date_Time_Closed__c: DetailsInfo
   Contact_Key__c: DetailsInfo
@@ -40,7 +40,7 @@ type Status = {
 
 type Details = {
   Subject__c: string
-  Note__c: string
+  Description__c: string
   Date_Time_Opened__c: string
   Date_Time_Closed__c: string
   Contact__c: string
@@ -91,7 +91,7 @@ const generalDetails = ref<General>({
   Contact_Key__c: { label: '', value: '' },
   Date_Time_Closed__c: { label: '', value: '' },
   Date_Time_Opened__c: { label: '', value: '' },
-  Note__c: { label: '', value: '' },
+  Description__c: { label: '', value: '' },
   Subject__c: { label: '', value: '' },
   SuppliedName__c: { label: '', value: '' },
   SuppliedPhone__c: { label: '', value: '' },
@@ -115,11 +115,9 @@ const query = ref<string>(`
 `)
 
 const fileQuery = ref<string>(`
-  SELECT Id, Name, 
-  (SELECT Id, Title, FileType, CreatedDate, ParentId, ContentUrl, ExternalDataSourceName, ExternalDataSourceType FROM CombinedAttachments), 
-  (SELECT Id FROM Attachments) 
-  FROM CaseInternal__c
-  WHERE Id = '${ticketId}'
+  SELECT Id, ContentDocument.title, ContentDocument.Id, ContentDocument.CreatedDate, ContentDocument.FileExtension
+  FROM ContentDocumentLink
+  WHERE ContentDocument.IsDeleted = false AND LinkedEntityId = '${ticketId}'
 `)
 
 const dialog = ref<any>()
@@ -187,7 +185,7 @@ onMounted(async () => {
         label: 'Date / Time Opened',
         value: new Date(res.Date_Time_Opened__c).toDateString()
       }
-      generalDetails.value.Note__c = { label: 'Note', value: res.Note__c ?? '-' }
+      generalDetails.value.Description__c = { label: 'Note', value: res.Description__c ?? '-' }
       generalDetails.value.Subject__c = { label: 'Subject', value: res.Subject__c ?? '-' }
       generalDetails.value.SuppliedName__c = {
         label: 'Web Name',
@@ -221,7 +219,7 @@ onMounted(async () => {
   await axios
     .get(QUERY_ENDPOINT, { headers: store.auth.headers, params: { q: queryOwner.value.trim() } })
     .then((res) => res.data.records)
-    .then((res) => (owner.value = res[0].Name ?? '-'))
+    .then((res) => (owner.value = res[0]?.Name ?? '-'))
     .catch(console.error)
 
   await axios
@@ -233,9 +231,59 @@ onMounted(async () => {
   await axios
     .get(QUERY_ENDPOINT, { headers: store.auth.headers, params: { q: fileQuery.value.trim() } })
     .then((res) => res.data.records)
-    .then((res) => (filesUploaded.value = res[0].CombinedAttachments.records))
+    .then((res) => (filesUploaded.value = res))
     .catch(console.error)
 })
+
+const handleDownload = async (id: string, filename: string) => {
+  // await axios
+  //   .get(`https://covisian6.my.salesforce.com${url}/VersionData`, {
+  //     headers: store.auth.headers,
+  //     responseType: 'blob'
+  //   })
+  //   .then((res) => {
+  //     const href = URL.createObjectURL(res.data)
+  //     const link = document.createElement('a')
+  //     link.href = href
+  //     link.setAttribute('download', filename)
+  //     document.body.appendChild(link)
+  //     link.click()
+  //     document.body.removeChild(link)
+  //     URL.revokeObjectURL(href)
+  //   })
+  //   .catch(console.error)
+
+  const fileId = await axios
+    .get(`${QUERY_ENDPOINT}`, {
+      headers: store.auth.headers,
+      params: {
+        q: `SELECT Id FROM ContentVersion WHERE ContentDocument.Id = '${id}'`
+      }
+    })
+    .then((res) => res.data)
+    .then((res) => res.records[0].Id)
+    .catch(console.error)
+
+  await axios
+    .get(
+      `https://covisian6.my.salesforce.com/services/data/v58.0/sobjects/ContentVersion/${fileId}/`,
+      {
+        headers: store.auth.headers,
+        responseType: 'blob'
+      }
+    )
+    .then((res) => {
+      const href = URL.createObjectURL(res.data)
+      const link = document.createElement('a')
+      link.href = href
+      link.setAttribute('download', filename)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(href)
+    })
+    .catch(console.error)
+}
 
 const handleSubmit = async () => {
   await axios
@@ -268,11 +316,13 @@ const handleSubmitFile = async () => {
     const encodedFile = (reader.result as string).split(',')[1]
     await axios
       .post(
-        'https://covisian6.my.salesforce.com/services/data/v58.0/sobjects/Attachment',
+        'https://covisian6.my.salesforce.com/services/data/v58.0/sobjects/ContentVersion',
         {
-          ParentId: route.params.id,
-          Name: files.value?.item(0)?.name,
-          Body: encodedFile
+          FirstPublishLocationId: route.params.id,
+          Title: files.value?.item(0)?.name,
+          Description: files.value?.item(0)?.name,
+          VersionData: encodedFile,
+          PathOnClient: files.value?.item(0)?.name
         },
         { headers: store.auth.headers }
       )
@@ -286,7 +336,7 @@ const handleSubmitFile = async () => {
     await axios
       .get(QUERY_ENDPOINT, { headers: store.auth.headers, params: { q: fileQuery.value.trim() } })
       .then((res) => res.data.records)
-      .then((res) => (filesUploaded.value = res[0].CombinedAttachments.records))
+      .then((res) => (filesUploaded.value = res))
       .catch(() => toast.value?.show('Impossibile allegare il file.', 'danger'))
   }
 }
@@ -475,15 +525,16 @@ const handleSubmitFile = async () => {
             <sl-dialog ref="fileDialog" :label="`File (${filesUploaded.length})`">
               <template v-if="filesUploaded.length > 0">
                 <div v-for="(file, index) of filesUploaded" class="dialog-container" :key="index">
-                  <div class="dialog">
-                    <!-- {{ `https://covisian6.my.salesforce.com${file.attributes.url}` }} -->
-                    <span>
-                      {{ file.Title }}
+                  <div class="dialog download">
+                    <span
+                      @click="handleDownload(file.ContentDocument.Id, file.ContentDocument.Title)"
+                    >
+                      {{ file.ContentDocument.Title }}
                     </span>
                   </div>
                   <div class="dialog">
                     <span>
-                      {{ new Date(file.CreatedDate).toDateString() }}
+                      {{ new Date(file.ContentDocument.CreatedDate).toDateString() }}
                     </span>
                   </div>
                 </div>
@@ -528,6 +579,10 @@ sl-textarea {
 .dialog-container .dialog {
   display: flex;
   flex-direction: column;
+}
+
+.dialog-container .dialog.download:hover {
+  cursor: pointer;
 }
 
 .dialog-container .dialog span:first-child {
